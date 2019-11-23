@@ -67,7 +67,7 @@ public abstract class AbstractTrafficShapingHandler extends ChannelDuplexHandler
     static final long DEFAULT_MAX_SIZE = 4 * 1024 * 1024L;
 
     /**
-     * Default minimal time to wait
+     * Default minimal time to wait: 10ms
      */
     static final long MINIMAL_WAIT = 10;
 
@@ -441,11 +441,15 @@ public abstract class AbstractTrafficShapingHandler extends ChannelDuplexHandler
                 // Anything else allows the handler to reset the AutoRead
                 if (logger.isDebugEnabled()) {
                     if (config.isAutoRead() && !isHandlerActive(ctx)) {
-                        logger.debug("Unsuspend: " + config.isAutoRead() + ':' +
-                                isHandlerActive(ctx));
+                        if (logger.isDebugEnabled()) {
+                            logger.debug("Unsuspend: " + config.isAutoRead() + ':' +
+                                    isHandlerActive(ctx));
+                        }
                     } else {
-                        logger.debug("Normal unsuspend: " + config.isAutoRead() + ':'
-                                + isHandlerActive(ctx));
+                        if (logger.isDebugEnabled()) {
+                            logger.debug("Normal unsuspend: " + config.isAutoRead() + ':'
+                                    + isHandlerActive(ctx));
+                        }
                     }
                 }
                 channel.attr(READ_SUSPENDED).set(false);
