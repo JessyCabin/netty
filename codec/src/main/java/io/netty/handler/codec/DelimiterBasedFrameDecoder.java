@@ -59,11 +59,32 @@ import java.util.List;
  */
 public class DelimiterBasedFrameDecoder extends ByteToMessageDecoder {
 
+    /**
+     * 分隔符
+     */
     private final ByteBuf[] delimiters;
+    /**
+     * 最大帧长度
+     */
     private final int maxFrameLength;
+    /**
+     * 是否跳过分隔符，就是最终解码的数据里面是否包含分隔符
+     */
     private final boolean stripDelimiter;
+    /**
+     * 为true说明发现督导的数据已经超过maxFrameLength，立即报TooLongFrameException，
+     * false-读完整个帧数据后再报
+     */
     private final boolean failFast;
+    /**
+     * 当前的解码器是否处于discardingTooLongFrame状态，是一个标志位，在构造函数里不能进行设置，
+     * 只能在解码器里进行设置
+     */
     private boolean discardingTooLongFrame;
+    /**
+     * 是一个状态属性，就是说出现了超长帧了，哪这个帧的长度到底是多少，就是这个长度，
+     * 一般来说是在发现当前buffer的可读数据超过最大帧时候进行设置
+     */
     private int tooLongFrameLength;
     /** Set only when decoding with "\n" and "\r\n" as the delimiter.  */
     private final LineBasedFrameDecoder lineBasedDecoder;
@@ -244,6 +265,11 @@ public class DelimiterBasedFrameDecoder extends ByteToMessageDecoder {
             }
         }
 
+        /**
+         * 1）如果找到了分割符，如果当前的解码器处于discardingTooLongFrame状态，也就是说上次解码的时候发现了超长帧，被抛弃过。首先将这个状态修改过来，标志为不是抛弃过超长帧，这个时候将整个帧丢弃掉，然后如果不是failfast状态，抛出异常，这个怎么理解呢，可以理解为上次在读取的时候发现了超长帧，但是由于设置了不立即抛出异常，而是等读完整个帧数据才抛出异常，这个时候既然发现了分隔符，该到抛出异常的时候了，最后return null表明此次分帧是失败状态。
+          2） 如果发现此次的帧数据超过最大帧的长度，直接抛出异常
+         3）最后就是如果跳过分隔符，就直接跳过，负责就和分隔符和帧的实际数据一块返回
+         */
         if (minDelim != null) {
             int minDelimLength = minDelim.capacity();
             ByteBuf frame;
@@ -278,6 +304,11 @@ public class DelimiterBasedFrameDecoder extends ByteToMessageDecoder {
 
             return frame;
         } else {
+            /**
+             * 1）如果发现当前的解码器不是处于discardingTooLongFrame状态，当前buffer里面的可读数据又比最大帧要大，我们就将解码器标记为discardingTooLongFrame状态，并设置这个超长帧的大小，如果是failfast状态，就立马抛出异常，也就是说我们发现了超长帧了，所以我们立马抛出异常
+               2）如果发现当前的解码器已经处于discardingTooLongFrame状态，我们别无他方，只能修改下tooLongFrameLength的长度，然后听天由命，等待下次解码操作
+               3）这个时候如果一旦发现了超长帧，都return null，含义就是说此次解码是无效的
+             */
             if (!discardingTooLongFrame) {
                 if (buffer.readableBytes() > maxFrameLength) {
                     // Discard the content of the buffer until a delimiter is found.
